@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>画廊档案</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="scan-progress" id="progressPanel" aria-live="polite">
+  <div class="scan-progress-meta">
+    <span id="progressTitle">扫描中...</span>
+    <span id="progressCount"></span>
+  </div>
+  <div class="scan-progress-track"><div class="fill" id="progressFill" style="width:0%"></div></div>
+  <div class="scan-progress-path" id="progressPath"></div>
+</div>
+
+<header id="appHeader" class="mobile-tools-collapsed">
+  <h1>画廊档案</h1>
+  <div class="artist-picker" id="artistPicker">
+    <input type="text" id="artistSearch" placeholder="选择/搜索画师..." autocomplete="off">
+    <div class="artist-dropdown" id="artistDropdown"></div>
+  </div>
+  <button id="mobileHeaderToggle" class="mobile-header-toggle" type="button" aria-expanded="false" aria-label="展开搜索扫描工具">工具</button>
+  <div class="mode-tabs">
+    <button class="active" data-mode="browse">浏览</button>
+    <button data-mode="edit">编辑</button>
+    <button data-mode="moves">维护</button>
+  </div>
+  <div class="search-control" id="searchControl">
+    <input type="text" id="searchInput" placeholder="搜索标签/文件名...">
+    <button id="searchOptionsBtn" class="search-options-btn" type="button" aria-expanded="false" aria-controls="searchOptionsMenu" title="搜索选项">自动</button>
+    <div class="search-options-menu" id="searchOptionsMenu" hidden>
+      <div class="search-options-title">搜索范围</div>
+      <div class="search-scope-list">
+        <button type="button" data-search-scope="auto">自动</button>
+        <button type="button" data-search-scope="artist">当前画师</button>
+        <button type="button" data-search-scope="folder">当前文件夹</button>
+        <button type="button" data-search-scope="global">全局</button>
+      </div>
+      <label class="search-tags-only">
+        <input type="checkbox" id="tagsOnlyToggle">
+        <span>仅标签</span>
+      </label>
+    </div>
+  </div>
+  <button id="scanBtn" title="触发全量扫描">全量扫描</button>
+  <button id="scanFolderBtn" class="scan-folder-btn" type="button" style="display:none">扫描当前文件夹</button>
+  <button id="stopScanBtn" title="停止扫描" style="display:none;background:var(--danger);color:#fff">停止</button>
+</header>
+
+<main>
+  <div class="filter-backdrop" id="filterBackdrop" hidden></div>
+  <aside class="sidebar" id="filterSidebar">
+    <div class="sidebar-mobile-head">
+      <span>筛选</span>
+      <button id="filterDrawerClose" type="button" aria-label="关闭筛选">关闭</button>
+    </div>
+    <div class="duplicate-section" id="duplicateSection" style="display:none">
+      <button class="duplicate-toggle" id="duplicateToggle" type="button">
+        <span>重复文件夹</span>
+        <span class="count" id="duplicateCount">0</span>
+      </button>
+      <div class="duplicate-list" id="duplicateList"></div>
+    </div>
+    <div class="sidebar-section tag-section">
+      <div class="sidebar-header">
+        <span>标签</span>
+        <span id="sidebarTotal" style="font-size:11px"></span>
+      </div>
+      <div class="sidebar-list" id="sidebarList"></div>
+    </div>
+    <div class="sidebar-section folder-section">
+      <div class="sidebar-header">
+        <span>文件夹</span>
+        <span id="folderTotal" style="font-size:11px"></span>
+      </div>
+      <div class="folder-tree" id="folderTree"></div>
+    </div>
+  </aside>
+  <div id="sidebarResizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="调整侧栏宽度"></div>
+
+  <div class="content">
+    <div class="toolbar">
+      <button id="mobileFilterBtn" class="mobile-filter-btn" type="button" aria-expanded="false" aria-controls="filterSidebar">筛选</button>
+      <button id="duplicateFilesBtn" class="duplicate-files-btn" type="button" style="display:none" aria-pressed="false">重复文件</button>
+      <div class="view-toggle desktop-view-toggle" id="desktopViewToggle">
+        <button data-view="grid" class="active">网格</button>
+        <button data-view="compact">紧凑</button>
+        <button data-view="list">列表</button>
+      </div>
+      <div class="view-toggle mobile-column-toggle" id="mobileColumnToggle" aria-label="选择列数">
+        <button type="button" data-mobile-columns="1">1列</button>
+        <button type="button" data-mobile-columns="2" class="active">2列</button>
+        <button type="button" data-mobile-columns="3">3列</button>
+      </div>
+    </div>
+    <div class="edit-bar" id="editBar">
+      <span class="selected-count" id="selectedCount">已选 0 张</span>
+      <button id="editSelectAllBtn">全选</button>
+      <div class="tag-picker" id="editTagPicker">
+        <input type="text" id="editTagSearch" placeholder="选择/搜索标签..." autocomplete="off">
+        <div class="tag-picker-panel" id="editTagPickerPanel"></div>
+      </div>
+      <span class="tag-picker-summary" id="editTagPickerSummary">未选标签</span>
+      <button class="primary" id="editApplyBtn">添加标签</button>
+      <button class="danger" id="editDeleteRoleBtn">删除标签</button>
+      <button id="editCancelBtn">取消</button>
+    </div>
+    <div class="move-panel" id="movePanel">
+      <div class="maintenance-dashboard">
+        <section class="maintenance-hero">
+          <div class="maintenance-hero-copy">
+            <div class="maintenance-kicker">维护中心</div>
+            <div class="move-title">状态、归档与路径确认</div>
+            <div class="move-subtitle">集中查看健康状态、归档预案、自动归档记录和路径确认；除已确认的归档执行外，不会移动或删除 NAS 文件。</div>
+          </div>
+          <div class="maintenance-hero-actions">
+            <button id="moveRefreshBtn" type="button">刷新</button>
+          </div>
+        </section>
+
+        <div class="maintenance-view-tabs" role="tablist" aria-label="维护视图">
+          <button type="button" class="active" data-maintenance-view="overview">状态 / 待归档</button>
+          <button type="button" data-maintenance-view="auto-archive">自动归档</button>
+          <button type="button" data-maintenance-view="confirmed-plans">已确认归档</button>
+          <button type="button" data-maintenance-view="paths">路径确认</button>
+          <button type="button" data-maintenance-view="operation-log">历史 / 错误</button>
+          <button type="button" data-maintenance-view="guide">操作须知</button>
+        </div>
+
+        <div class="maintenance-view-panel active" data-maintenance-view-panel="overview">
+        <section class="maintenance-section health-panel" id="healthPanel">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">状态总览</div>
+              <div class="health-subtitle">只读检查数据库、备份、日志、扫描和相同文件检查。</div>
+            </div>
+            <div class="maintenance-section-actions">
+              <button id="manualBackupBtn" type="button">立即备份数据库</button>
+              <span id="backupResult"></span>
+            </div>
+          </div>
+          <div class="health-grid" id="healthGrid">
+            <div class="maintenance-card status-card status-muted move-empty small">等待读取健康状态</div>
+          </div>
+        </section>
+
+        <section class="maintenance-section folder-rename" id="folderRenamePanel">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">文件夹归档预案</div>
+              <div class="health-subtitle">按日期和已选标签生成目标名</div>
+            </div>
+          </div>
+          <div class="folder-rename-summary" id="folderRenameSummary">请选择画师后读取预案</div>
+          <div class="folder-rename-groups" id="folderRenameGroupList"></div>
+        </section>
+        </div>
+
+        <div class="maintenance-view-panel" data-maintenance-view-panel="auto-archive" hidden>
+        <section class="maintenance-section folder-rename-auto-detail" id="folderRenameAutoDetailPanel">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">自动归档执行记录</div>
+              <div class="health-subtitle">显示最近一轮扫描后自动执行了哪些预案，哪些预案被跳过或失败。</div>
+            </div>
+            <div class="maintenance-section-actions folder-rename-auto-controls">
+              <label class="maintenance-auto-toggle" title="扫描完成后自动执行已确认且安全的归档预案">
+                <input id="folderRenameAutoExecuteToggle" type="checkbox">
+                <span>自动归档</span>
+              </label>
+              <button id="folderRenameRunArtistBtn" type="button">重命名当前画师</button>
+            </div>
+          </div>
+          <div class="folder-rename-auto-detail-summary" id="folderRenameAutoDetailSummary">自动归档：读取中</div>
+          <div class="folder-rename-auto-detail-list" id="folderRenameAutoDetailList"></div>
+        </section>
+        </div>
+
+        <div class="maintenance-view-panel" data-maintenance-view-panel="confirmed-plans" hidden>
+        <section class="maintenance-section folder-rename" id="folderRenameConfirmedPanel">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">已确认归档预案</div>
+              <div class="health-subtitle">已确认的预案移到这里，按确认方式分组查看。</div>
+            </div>
+          </div>
+          <div class="folder-rename-summary" id="folderRenameConfirmedSummary">请选择画师后查看已确认预案</div>
+          <div class="folder-rename-groups" id="folderRenameConfirmedGroupList"></div>
+          <div class="folder-rename-leftover-list" id="folderRenameLeftoverList"></div>
+        </section>
+        </div>
+
+        <div class="maintenance-view-panel" data-maintenance-view-panel="paths" hidden>
+        <section class="maintenance-section maintenance-actions">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">待处理事项</div>
+              <div class="health-subtitle">先看需要人工确认的路径，再等系统完成相同文件检查。</div>
+            </div>
+          </div>
+          <div class="move-summary">
+            <div class="maintenance-card action-card metric-card metric-alert"><strong id="movePendingCount">0</strong><span>需要你处理</span></div>
+            <div class="maintenance-card action-card metric-card metric-info"><strong id="moveWaitingHashCount">0</strong><span>系统处理中</span></div>
+            <div class="maintenance-card action-card metric-card metric-ok"><strong id="movePreviewCount">0</strong><span>已自动确认</span></div>
+          </div>
+        </section>
+
+        <section class="maintenance-section maintenance-workbench">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">路径确认工作区</div>
+              <div class="health-subtitle">列表出现旧/新位置时，先确认是不是同一个文件，再选择确认或当作新文件。</div>
+            </div>
+          </div>
+          <div class="hash-status maintenance-command-strip">
+            <div>
+              <span class="hash-label">相同文件检查</span>
+              <span id="hashStatusText">等待检查</span>
+            </div>
+          </div>
+          <div class="move-list" id="moveCandidateList"></div>
+        </section>
+
+        <section class="maintenance-section move-history-panel" id="moveHistoryPanel">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">自动确认记录</div>
+              <div class="health-subtitle">系统已经自动确认过的路径变更记录，只用于回看。</div>
+            </div>
+          </div>
+          <div class="move-history">
+            <div class="move-history-list" id="moveHistoryList"></div>
+          </div>
+        </section>
+        </div>
+
+        <div class="maintenance-view-panel" data-maintenance-view-panel="operation-log" hidden>
+        <section class="maintenance-section operation-log-panel" id="operationLogPanel">
+          <div class="maintenance-section-head">
+            <div>
+              <div class="move-section-title">移动、重命名和错误</div>
+              <div class="health-subtitle">只读汇总普通路径变更、文件夹归档执行和最近错误，不触发任何 NAS 写入。</div>
+            </div>
+          </div>
+          <div class="operation-log-summary" id="operationLogSummary">等待读取历史</div>
+          <div class="operation-log-grid">
+            <div class="operation-log-column">
+              <div class="operation-log-title">移动 / 重命名历史</div>
+              <div class="operation-history-list" id="operationHistoryList"></div>
+            </div>
+            <div class="operation-log-column">
+              <div class="operation-log-title">最近错误</div>
+              <div class="operation-error-list" id="operationErrorList"></div>
+            </div>
+          </div>
+        </section>
+        </div>
+
+        <div class="maintenance-view-panel" data-maintenance-view-panel="guide" hidden>
+        <details class="maintenance-section maintenance-guide" open>
+          <summary>维护说明 / 操作须知</summary>
+          <div class="maintenance-guide-grid">
+            <div><b>扫描范围</b><span>全库扫描：检查所有画师。当前画师扫描：仅检查左上角选中的画师。当前文件夹扫描：仅检查当前浏览的文件夹。</span></div>
+            <div><b>扫描结果</b><span>所有扫描模式均会识别新增文件，并将原位置已不存在的文件标记为“找不到”。扫描过程不会移动或删除 NAS 上的任何文件。</span></div>
+            <div><b>自动扫描</b><span>手动扫描完成后，系统将以此时间为起点，重新等待 6 小时后执行下一次自动扫描。</span></div>
+            <div><b>相同文件检查</b><span>系统自动比对判断新旧位置的文件是否为同一文件。看到“正在检查”状态时请耐心等待，无需手动点击按钮。</span></div>
+            <div><b>路径确认</b><span>列表中同时显示旧/新位置时，请先判断两者是否为同一文件。确定为同一文件 → 点击“确认同一文件”；无法确定 → 点击“当作新文件”或暂时忽略。</span></div>
+            <div><b>旧记录清理</b><span>扫描后标记为“找不到”的文件记录，将从标记之日起保留 90 天。清理前系统会先列出待清理数量并完成备份。网页端无直接清理按钮，此操作同样不会删除 NAS 上的文件。</span></div>
+          </div>
+        </details>
+        </div>
+      </div>
+    </div>
+    <div class="grid-container" id="gridContainer">
+      <div class="library-empty" id="libraryEmptyState" style="display:none">
+        <div class="library-empty-kicker" id="libraryEmptyKicker">画廊档案</div>
+        <h2 id="libraryEmptyTitle">画廊档案是空的</h2>
+        <p id="libraryEmptyText">从挂载的图片目录开始扫描，重建画师、文件夹和媒体索引。</p>
+        <div class="library-empty-actions">
+          <button id="emptyScanBtn" class="primary" type="button">开始全量扫描</button>
+          <span id="libraryEmptyMeta">扫描会在后台运行，可以随时查看顶部进度。</span>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+</main>
+
+<div class="lightbox" id="lightbox" style="display:none">
+  <span class="close">&times;</span>
+  <a class="lightbox-download" id="lightboxDownloadBtn" href="#" download title="下载图片" aria-label="下载图片">↓</a>
+  <span class="nav prev">&lt;</span>
+  <img id="lightboxImg" alt="" style="display:none">
+  <video id="lightboxVideo" controls preload="metadata" playsinline webkit-playsinline style="display:none"></video>
+  <div id="lightboxFile" class="lightbox-file" style="display:none"></div>
+  <span class="nav next">&gt;</span>
+  <div class="info-bar" id="lightboxInfo"></div>
+</div>
+
+<script src="/static/js/core.js"></script>
+<script src="/static/js/layout.js"></script>
+<script src="/static/js/maintenance.js"></script>
+<script src="/static/js/media.js"></script>
+<script src="/static/js/edit.js"></script>
+<script src="/static/js/events.js"></script>
+
+</body>
+</html>

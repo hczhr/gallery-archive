@@ -1,0 +1,17 @@
+# 启动/更新：docker compose up -d
+# 首次部署通常只改媒体 volumes 左边 NAS 路径；右边保留 /media/<显示名>，应用会自动发现。
+services:
+  gallery:
+    image: crpi-hwq9kgccbg8v0l26.cn-hangzhou.personal.cr.aliyuncs.com/hczhr/gallery:stable
+    ports:
+      - "8848:8848" # 左边网页端口，右边不要改
+    volumes:
+      - /volume1/Pictures1:/media/Pictures1 # 冒号前改成你的 NAS 路径，冒号后是页面显示名
+      - /volume1/Pictures2:/media/Pictures2 # 增删图库只改这里的媒体挂载行
+      - ./data:/app/data # 默认放在当前部署目录
+      - ./preview-cache:/preview-cache # 默认放在当前部署目录
+    environment:
+      - DATA_DIR=/app/data
+    pull_policy: always
+    container_name: gallery
+    restart: unless-stopped
